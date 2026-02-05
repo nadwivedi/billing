@@ -50,10 +50,6 @@ const purchaseSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  referenceNumber: {
-    type: String,
-    trim: true
-  },
   party: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Party',
@@ -64,29 +60,6 @@ const purchaseSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  dueDate: {
-    type: Date
-  },
-  subtotal: {
-    type: Number,
-    required: true
-  },
-  discountAmount: {
-    type: Number,
-    default: 0
-  },
-  taxAmount: {
-    type: Number,
-    default: 0
-  },
-  shippingCharges: {
-    type: Number,
-    default: 0
-  },
-  otherCharges: {
-    type: Number,
-    default: 0
-  },
   totalAmount: {
     type: Number,
     required: true
@@ -95,15 +68,9 @@ const purchaseSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  paymentStatus: {
-    type: String,
-    enum: ['unpaid', 'partial', 'paid'],
-    default: 'unpaid'
-  },
-  status: {
-    type: String,
-    enum: ['draft', 'confirmed', 'cancelled'],
-    default: 'confirmed'
+  balanceAmount: {
+    type: Number,
+    required: true
   },
   notes: {
     type: String,

@@ -20,19 +20,6 @@ const saleItemSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
-  discount: {
-    type: Number,
-    default: 0,
-    min: 0
-  },
-  taxRate: {
-    type: Number,
-    default: 0
-  },
-  taxAmount: {
-    type: Number,
-    default: 0
-  },
   total: {
     type: Number,
     required: true
@@ -72,33 +59,6 @@ const saleSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  dueDate: {
-    type: Date
-  },
-  subtotal: {
-    type: Number,
-    required: true
-  },
-  discountAmount: {
-    type: Number,
-    default: 0
-  },
-  taxAmount: {
-    type: Number,
-    default: 0
-  },
-  shippingCharges: {
-    type: Number,
-    default: 0
-  },
-  otherCharges: {
-    type: Number,
-    default: 0
-  },
-  roundOff: {
-    type: Number,
-    default: 0
-  },
   totalAmount: {
     type: Number,
     required: true
@@ -107,20 +67,9 @@ const saleSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  paymentStatus: {
-    type: String,
-    enum: ['unpaid', 'partial', 'paid'],
-    default: 'unpaid'
-  },
-  paymentMode: {
-    type: String,
-    enum: ['cash', 'upi', 'card', 'bank', 'credit', 'cheque'],
-    default: 'cash'
-  },
-  status: {
-    type: String,
-    enum: ['draft', 'confirmed', 'cancelled', 'returned'],
-    default: 'confirmed'
+  balanceAmount: {
+    type: Number,
+    required: true
   },
   notes: {
     type: String,

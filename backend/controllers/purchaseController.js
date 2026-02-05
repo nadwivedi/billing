@@ -8,14 +8,6 @@ exports.createPurchase = async (req, res) => {
       party,
       items,
       purchaseDate,
-      dueDate,
-      subtotal,
-      discountAmount,
-      taxAmount,
-      shippingCharges,
-      otherCharges,
-      totalAmount,
-      paidAmount,
       notes
     } = req.body;
     const userId = req.userId;
@@ -27,19 +19,17 @@ exports.createPurchase = async (req, res) => {
       });
     }
 
+    // Calculate total amount from items
+    const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
+
     const purchase = await Purchase.create({
       userId,
       party,
       items,
-      purchaseDate,
-      dueDate,
-      subtotal,
-      discountAmount: discountAmount || 0,
-      taxAmount: taxAmount || 0,
-      shippingCharges: shippingCharges || 0,
-      otherCharges: otherCharges || 0,
+      purchaseDate: purchaseDate || new Date(),
       totalAmount,
-      paidAmount: paidAmount || 0,
+      paidAmount: 0,
+      balanceAmount: totalAmount,
       notes
     });
 
@@ -68,17 +58,15 @@ exports.createPurchase = async (req, res) => {
 // Get all purchases
 exports.getAllPurchases = async (req, res) => {
   try {
-    const { party, paymentStatus, status, search } = req.query;
+    const { party, search } = req.query;
     const userId = req.userId;
     let filter = { userId };
 
     if (party) filter.party = party;
-    if (paymentStatus) filter.paymentStatus = paymentStatus;
-    if (status) filter.status = status;
 
     let query = Purchase.find(filter)
       .populate('party', 'PartName phone')
-      .populate('items.product', 'name sku');
+      .populate('items.product', 'name');
 
     if (search) {
       query = query.where('invoiceNumber').regex(new RegExp(search, 'i'));
@@ -108,7 +96,7 @@ exports.getPurchaseById = async (req, res) => {
 
     const purchase = await Purchase.findOne({ _id: id, userId })
       .populate('party', 'PartName phone email')
-      .populate('items.product', 'name sku unit');
+      .populate('items.product', 'name');
 
     if (!purchase) {
       return res.status(404).json({
@@ -135,15 +123,15 @@ exports.updatePurchase = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.userId;
-    const updateData = req.body;
+    const { notes } = req.body;
 
     const purchase = await Purchase.findOneAndUpdate(
       { _id: id, userId },
-      updateData,
+      { notes },
       { new: true, runValidators: true }
     )
       .populate('party', 'PartName phone')
-      .populate('items.product', 'name sku');
+      .populate('items.product', 'name');
 
     if (!purchase) {
       return res.status(404).json({
@@ -198,48 +186,6 @@ exports.deletePurchase = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || 'Error deleting purchase'
-    });
-  }
-};
-
-// Update payment status
-exports.updatePaymentStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.userId;
-    const { paidAmount } = req.body;
-
-    const purchase = await Purchase.findOne({ _id: id, userId });
-
-    if (!purchase) {
-      return res.status(404).json({
-        success: false,
-        message: 'Purchase not found'
-      });
-    }
-
-    purchase.paidAmount = paidAmount;
-
-    if (paidAmount >= purchase.totalAmount) {
-      purchase.paymentStatus = 'paid';
-    } else if (paidAmount > 0) {
-      purchase.paymentStatus = 'partial';
-    } else {
-      purchase.paymentStatus = 'unpaid';
-    }
-
-    await purchase.save();
-
-    res.status(200).json({
-      success: true,
-      message: 'Payment status updated successfully',
-      data: purchase
-    });
-  } catch (error) {
-    console.error('Update payment status error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Error updating payment status'
     });
   }
 };
