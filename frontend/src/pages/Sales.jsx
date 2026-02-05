@@ -249,23 +249,6 @@ export default function Sales() {
             {/* Customer Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-gray-700 font-medium mb-2">Customer (Optional)</label>
-                <select
-                  name="party"
-                  value={formData.party}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                >
-                  <option value="">Select customer or Walk-in</option>
-                  {parties.map((party) => (
-                    <option key={party._id} value={party._id}>
-                      {party.PartName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
                 <label className="block text-gray-700 font-medium mb-2">Customer Name</label>
                 <input
                   type="text"
