@@ -1,14 +1,647 @@
+import { useState, useEffect } from 'react';
+import apiClient from '../utils/api';
+
 export default function Sales() {
+  const [sales, setSales] = useState([]);
+  const [parties, setParties] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [search, setSearch] = useState('');
+  const [formData, setFormData] = useState({
+    party: '',
+    customerName: '',
+    customerPhone: '',
+    customerAddress: '',
+    items: [],
+    saleDate: new Date().toISOString().split('T')[0],
+    dueDate: '',
+    subtotal: 0,
+    discountAmount: 0,
+    taxAmount: 0,
+    shippingCharges: 0,
+    otherCharges: 0,
+    roundOff: 0,
+    totalAmount: 0,
+    paidAmount: 0,
+    paymentMode: 'cash',
+    notes: ''
+  });
+  const [currentItem, setCurrentItem] = useState({
+    product: '',
+    productName: '',
+    quantity: '',
+    unitPrice: '',
+    taxRate: 0,
+    discount: 0
+  });
+
+  useEffect(() => {
+    fetchSales();
+    fetchParties();
+    fetchProducts();
+  }, [search]);
+
+  const fetchSales = async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.get('/sales', {
+        params: { search }
+      });
+      setSales(response.data || []);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Error fetching sales');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchParties = async () => {
+    try {
+      const response = await apiClient.get('/parties?type=customer');
+      setParties(response.data || []);
+    } catch (err) {
+      console.error('Error fetching parties:', err);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const response = await apiClient.get('/products');
+      setProducts(response.data || []);
+    } catch (err) {
+      console.error('Error fetching products:', err);
+    }
+  };
+
+  const handleAddItem = () => {
+    if (!currentItem.product || !currentItem.quantity || !currentItem.unitPrice) {
+      setError('Product, quantity and price are required');
+      return;
+    }
+
+    const product = products.find(p => p._id === currentItem.product);
+    if (!product || product.currentStock < currentItem.quantity) {
+      setError(`Insufficient stock for ${product?.name}`);
+      return;
+    }
+
+    const taxAmount = (currentItem.unitPrice * currentItem.quantity * currentItem.taxRate) / 100;
+    const discountAmount = currentItem.discount || 0;
+    const total = (currentItem.unitPrice * currentItem.quantity) + taxAmount - discountAmount;
+
+    const newItem = {
+      ...currentItem,
+      productName: product?.name,
+      quantity: parseFloat(currentItem.quantity),
+      unitPrice: parseFloat(currentItem.unitPrice),
+      taxAmount,
+      total
+    };
+
+    setFormData({
+      ...formData,
+      items: [...formData.items, newItem]
+    });
+
+    setCurrentItem({
+      product: '',
+      productName: '',
+      quantity: '',
+      unitPrice: '',
+      taxRate: 0,
+      discount: 0
+    });
+
+    calculateTotals([...formData.items, newItem]);
+  };
+
+  const handleRemoveItem = (index) => {
+    const newItems = formData.items.filter((_, i) => i !== index);
+    setFormData({ ...formData, items: newItems });
+    calculateTotals(newItems);
+  };
+
+  const calculateTotals = (items) => {
+    let subtotal = 0;
+    let totalTax = 0;
+
+    items.forEach(item => {
+      subtotal += item.unitPrice * item.quantity;
+      totalTax += item.taxAmount || 0;
+    });
+
+    const total = subtotal + totalTax + (formData.shippingCharges || 0) + (formData.otherCharges || 0) - (formData.discountAmount || 0);
+
+    setFormData(prev => ({
+      ...prev,
+      subtotal,
+      taxAmount: totalTax,
+      totalAmount: total
+    }));
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (formData.items.length === 0) {
+      setError('At least one item is required');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const submitData = {
+        ...formData,
+        saleDate: new Date(formData.saleDate),
+        dueDate: formData.dueDate ? new Date(formData.dueDate) : null
+      };
+
+      if (editingId) {
+        await apiClient.put(`/sales/${editingId}`, submitData);
+      } else {
+        await apiClient.post('/sales', submitData);
+      }
+      fetchSales();
+      setFormData({
+        party: '',
+        customerName: '',
+        customerPhone: '',
+        customerAddress: '',
+        items: [],
+        saleDate: new Date().toISOString().split('T')[0],
+        dueDate: '',
+        subtotal: 0,
+        discountAmount: 0,
+        taxAmount: 0,
+        shippingCharges: 0,
+        otherCharges: 0,
+        roundOff: 0,
+        totalAmount: 0,
+        paidAmount: 0,
+        paymentMode: 'cash',
+        notes: ''
+      });
+      setEditingId(null);
+      setShowForm(false);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Error saving sale');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (sale) => {
+    setFormData(sale);
+    setEditingId(sale._id);
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this sale?')) {
+      try {
+        await apiClient.delete(`/sales/${id}`);
+        fetchSales();
+      } catch (err) {
+        setError(err.message || 'Error deleting sale');
+      }
+    }
+  };
+
+  const handleCancel = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setFormData({
+      party: '',
+      customerName: '',
+      customerPhone: '',
+      customerAddress: '',
+      items: [],
+      saleDate: new Date().toISOString().split('T')[0],
+      dueDate: '',
+      subtotal: 0,
+      discountAmount: 0,
+      taxAmount: 0,
+      shippingCharges: 0,
+      otherCharges: 0,
+      roundOff: 0,
+      totalAmount: 0,
+      paidAmount: 0,
+      paymentMode: 'cash',
+      notes: ''
+    });
+  };
+
   return (
     <div className="ml-64 p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Sales</h1>
-        <p className="text-gray-600 mt-2">Manage sales transactions</p>
+      <div className="mb-8 flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Sales</h1>
+          <p className="text-gray-600 mt-2">Manage sales transactions</p>
+        </div>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+        >
+          {showForm ? 'Cancel' : '+ New Sale'}
+        </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <p className="text-gray-600 text-center py-8">Sales page coming soon...</p>
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+          {error}
+        </div>
+      )}
+
+      {showForm && (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">
+            {editingId ? 'Edit Sale' : 'Create New Sale'}
+          </h2>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Customer Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">Customer (Optional)</label>
+                <select
+                  name="party"
+                  value={formData.party}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                >
+                  <option value="">Select customer or Walk-in</option>
+                  {parties.map((party) => (
+                    <option key={party._id} value={party._id}>
+                      {party.PartName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">Customer Name</label>
+                <input
+                  type="text"
+                  name="customerName"
+                  value={formData.customerName}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  placeholder="Customer name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">Phone</label>
+                <input
+                  type="tel"
+                  name="customerPhone"
+                  value={formData.customerPhone}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  placeholder="Customer phone"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">Sale Date</label>
+                <input
+                  type="date"
+                  name="saleDate"
+                  value={formData.saleDate}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">Payment Mode</label>
+                <select
+                  name="paymentMode"
+                  value={formData.paymentMode}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                >
+                  <option value="cash">Cash</option>
+                  <option value="upi">UPI</option>
+                  <option value="card">Card</option>
+                  <option value="bank">Bank Transfer</option>
+                  <option value="credit">Credit</option>
+                  <option value="cheque">Cheque</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">Due Date</label>
+                <input
+                  type="date"
+                  name="dueDate"
+                  value={formData.dueDate}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-gray-700 font-medium mb-2">Customer Address</label>
+              <textarea
+                name="customerAddress"
+                value={formData.customerAddress}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                placeholder="Customer address"
+                rows="2"
+              />
+            </div>
+
+            {/* Add Items Section */}
+            <div className="border-t pt-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Add Items</h3>
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-4">
+                <select
+                  value={currentItem.product}
+                  onChange={(e) => setCurrentItem({ ...currentItem, product: e.target.value })}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+                >
+                  <option value="">Product</option>
+                  {products.map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  placeholder="Qty"
+                  value={currentItem.quantity}
+                  onChange={(e) => setCurrentItem({ ...currentItem, quantity: e.target.value })}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+                <input
+                  type="number"
+                  placeholder="Price"
+                  value={currentItem.unitPrice}
+                  onChange={(e) => setCurrentItem({ ...currentItem, unitPrice: e.target.value })}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  step="0.01"
+                />
+                <input
+                  type="number"
+                  placeholder="Tax %"
+                  value={currentItem.taxRate}
+                  onChange={(e) => setCurrentItem({ ...currentItem, taxRate: e.target.value })}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+                <input
+                  type="number"
+                  placeholder="Discount"
+                  value={currentItem.discount}
+                  onChange={(e) => setCurrentItem({ ...currentItem, discount: e.target.value })}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddItem}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm"
+                >
+                  Add
+                </button>
+              </div>
+
+              {/* Items Table */}
+              {formData.items.length > 0 && (
+                <div className="overflow-x-auto mb-4">
+                  <table className="w-full text-sm border">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-4 py-2 text-left">Product</th>
+                        <th className="px-4 py-2 text-left">Qty</th>
+                        <th className="px-4 py-2 text-left">Price</th>
+                        <th className="px-4 py-2 text-left">Tax</th>
+                        <th className="px-4 py-2 text-left">Discount</th>
+                        <th className="px-4 py-2 text-left">Total</th>
+                        <th className="px-4 py-2 text-left">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {formData.items.map((item, index) => (
+                        <tr key={index} className="border-b">
+                          <td className="px-4 py-2">{item.productName}</td>
+                          <td className="px-4 py-2">{item.quantity}</td>
+                          <td className="px-4 py-2">₹{item.unitPrice}</td>
+                          <td className="px-4 py-2">₹{item.taxAmount.toFixed(2)}</td>
+                          <td className="px-4 py-2">₹{item.discount}</td>
+                          <td className="px-4 py-2 font-semibold">₹{item.total.toFixed(2)}</td>
+                          <td className="px-4 py-2">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(index)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Charges */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border-t pt-4">
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">Discount</label>
+                <input
+                  type="number"
+                  name="discountAmount"
+                  value={formData.discountAmount}
+                  onChange={(e) => {
+                    handleInputChange(e);
+                    calculateTotals(formData.items);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  step="0.01"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">Shipping</label>
+                <input
+                  type="number"
+                  name="shippingCharges"
+                  value={formData.shippingCharges}
+                  onChange={(e) => {
+                    handleInputChange(e);
+                    calculateTotals(formData.items);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  step="0.01"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">Other Charges</label>
+                <input
+                  type="number"
+                  name="otherCharges"
+                  value={formData.otherCharges}
+                  onChange={(e) => {
+                    handleInputChange(e);
+                    calculateTotals(formData.items);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  step="0.01"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-medium mb-2">Paid Amount</label>
+                <input
+                  type="number"
+                  name="paidAmount"
+                  value={formData.paidAmount}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  step="0.01"
+                />
+              </div>
+            </div>
+
+            {/* Totals */}
+            <div className="bg-gray-50 p-4 rounded-lg grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-gray-600 text-sm">Subtotal</p>
+                <p className="text-xl font-bold">₹{formData.subtotal.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-gray-600 text-sm">Tax</p>
+                <p className="text-xl font-bold">₹{formData.taxAmount.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-gray-600 text-sm">Total</p>
+                <p className="text-2xl font-bold text-blue-600">₹{formData.totalAmount.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-gray-600 text-sm">Due</p>
+                <p className="text-2xl font-bold text-red-600">₹{(formData.totalAmount - formData.paidAmount).toFixed(2)}</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-gray-700 font-medium mb-2">Notes</label>
+              <textarea
+                name="notes"
+                value={formData.notes}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                placeholder="Additional notes"
+                rows="2"
+              />
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : 'Save Sale'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="mb-6">
+        <input
+          type="text"
+          placeholder="Search sales..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+        />
       </div>
+
+      {/* Sales List */}
+      {loading && !showForm ? (
+        <div className="text-center py-8 text-gray-500">Loading...</div>
+      ) : sales.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">
+          No sales found. Create your first sale!
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow-md overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-100 border-b">
+              <tr>
+                <th className="px-6 py-3 text-left font-semibold text-gray-700">Invoice</th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-700">Customer</th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-700">Date</th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-700">Total</th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-700">Paid</th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-700">Due</th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-700">Status</th>
+                <th className="px-6 py-3 text-left font-semibold text-gray-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sales.map((sale) => (
+                <tr key={sale._id} className="border-b hover:bg-gray-50">
+                  <td className="px-6 py-3 font-medium">{sale.invoiceNumber}</td>
+                  <td className="px-6 py-3">{sale.party?.PartName || sale.customerName || 'Walk-in'}</td>
+                  <td className="px-6 py-3">{new Date(sale.saleDate).toLocaleDateString()}</td>
+                  <td className="px-6 py-3">₹{sale.totalAmount.toFixed(2)}</td>
+                  <td className="px-6 py-3">₹{sale.paidAmount.toFixed(2)}</td>
+                  <td className="px-6 py-3">₹{(sale.totalAmount - sale.paidAmount).toFixed(2)}</td>
+                  <td className="px-6 py-3">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      sale.paymentStatus === 'paid'
+                        ? 'bg-green-100 text-green-800'
+                        : sale.paymentStatus === 'partial'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {sale.paymentStatus}
+                    </span>
+                  </td>
+                  <td className="px-6 py-3 space-x-2 text-sm">
+                    <button
+                      onClick={() => handleEdit(sale)}
+                      className="text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(sale._id)}
+                      className="text-red-600 hover:text-red-800 font-medium"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

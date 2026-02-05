@@ -31,14 +31,7 @@ function App() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/products"
-        element={
-          <ProtectedRoute>
-            <Products />
-          </ProtectedRoute>
-        }
-      />
+
       <Route
         path="/categories"
         element={
@@ -47,6 +40,16 @@ function App() {
           </ProtectedRoute>
         }
       />
+
+      <Route
+        path="/products"
+        element={
+          <ProtectedRoute>
+            <Products />
+          </ProtectedRoute>
+        }
+      />
+
       <Route
         path="/parties"
         element={
@@ -55,14 +58,7 @@ function App() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/sales"
-        element={
-          <ProtectedRoute>
-            <Sales />
-          </ProtectedRoute>
-        }
-      />
+
       <Route
         path="/purchases"
         element={
@@ -71,6 +67,16 @@ function App() {
           </ProtectedRoute>
         }
       />
+
+      <Route
+        path="/sales"
+        element={
+          <ProtectedRoute>
+            <Sales />
+          </ProtectedRoute>
+        }
+      />
+
       <Route
         path="/payments"
         element={
@@ -79,6 +85,7 @@ function App() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/reports"
         element={

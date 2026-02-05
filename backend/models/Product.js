@@ -11,17 +11,6 @@ const productSchema = new mongoose.Schema({
     required: [true, 'Product name is required'],
     trim: true
   },
-  sku: {
-    type: String,
-    unique: true,
-    sparse: true,
-    trim: true
-  },
-  barcode: {
-    type: String,
-    unique: true,
-    sparse: true
-  },
   category: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',
@@ -61,10 +50,6 @@ const productSchema = new mongoose.Schema({
     default: 0,
     min: 0,
     max: 100
-  },
-  hsnCode: {
-    type: String,
-    trim: true
   },
   isActive: {
     type: Boolean,
