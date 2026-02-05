@@ -2,14 +2,7 @@ import { useState, useEffect } from 'react';
 import apiClient from '../utils/api';
 
 export default function Products() {
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [search, setSearch] = useState('');
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     name: '',
     category: '',
     description: '',
@@ -19,7 +12,16 @@ export default function Products() {
     minStockLevel: 10,
     taxRate: 0,
     isActive: true
-  });
+  };
+
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [search, setSearch] = useState('');
+  const [formData, setFormData] = useState(initialFormData);
 
   useEffect(() => {
     fetchProducts();
@@ -81,17 +83,7 @@ export default function Products() {
         await apiClient.post('/products', submitData);
       }
       fetchProducts();
-      setFormData({
-        name: '',
-        category: '',
-        description: '',
-        unit: 'pcs',
-        purchasePrice: '',
-        salePrice: '',
-        minStockLevel: 10,
-        taxRate: 0,
-        isActive: true
-      });
+      setFormData(initialFormData);
       setEditingId(null);
       setShowForm(false);
       setError('');
@@ -122,17 +114,7 @@ export default function Products() {
   const handleCancel = () => {
     setShowForm(false);
     setEditingId(null);
-    setFormData({
-      name: '',
-      category: '',
-      description: '',
-      unit: 'pcs',
-      purchasePrice: '',
-      salePrice: '',
-      minStockLevel: 10,
-      taxRate: 0,
-      isActive: true
-    });
+    setFormData(initialFormData);
   };
 
   return (
@@ -143,10 +125,14 @@ export default function Products() {
           <p className="text-gray-600 mt-2">Manage your products and inventory</p>
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+          onClick={() => {
+            setEditingId(null);
+            setFormData(initialFormData);
+            setShowForm(true);
+          }}
+          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm"
         >
-          {showForm ? 'Cancel' : '+ Add Product'}
+          + Add Product
         </button>
       </div>
 
@@ -157,161 +143,185 @@ export default function Products() {
       )}
 
       {showForm && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">
-            {editingId ? 'Edit Product' : 'Add New Product'}
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={handleCancel}>
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-gray-200" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white rounded-t-2xl">
               <div>
-                <label className="block text-gray-700 font-medium mb-2">Product Name *</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  placeholder="Enter product name"
-                  required
-                />
+                <h2 className="text-2xl font-bold text-gray-800 tracking-tight">
+                  {editingId ? 'Edit Product' : 'Add New Product'}
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">Fill the details and save your product.</p>
               </div>
-
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">Category *</label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  required
-                >
-                  <option value="">Select category</option>
-                  {categories.map((cat) => (
-                    <option key={cat._id} value={cat._id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">Unit *</label>
-                <select
-                  name="unit"
-                  value={formData.unit}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                >
-                  <option value="pcs">Pieces</option>
-                  <option value="kg">Kilogram</option>
-                  <option value="g">Gram</option>
-                  <option value="ltr">Liter</option>
-                  <option value="ml">Milliliter</option>
-                  <option value="box">Box</option>
-                  <option value="pack">Pack</option>
-                  <option value="dozen">Dozen</option>
-                  <option value="meter">Meter</option>
-                  <option value="feet">Feet</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">Purchase Price *</label>
-                <input
-                  type="number"
-                  name="purchasePrice"
-                  value={formData.purchasePrice}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  placeholder="0.00"
-                  step="0.01"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">Sale Price *</label>
-                <input
-                  type="number"
-                  name="salePrice"
-                  value={formData.salePrice}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  placeholder="0.00"
-                  step="0.01"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">Min Stock Level</label>
-                <input
-                  type="number"
-                  name="minStockLevel"
-                  value={formData.minStockLevel}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  placeholder="10"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">Tax Rate (%)</label>
-                <input
-                  type="number"
-                  name="taxRate"
-                  value={formData.taxRate}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  placeholder="0"
-                  step="0.01"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-gray-700 font-medium mb-2">Description</label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-                placeholder="Enter description"
-                rows="3"
-              />
-            </div>
-
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                name="isActive"
-                id="isActive"
-                checked={formData.isActive}
-                onChange={handleInputChange}
-                className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-600"
-              />
-              <label htmlFor="isActive" className="ml-2 text-gray-700">
-                Active
-              </label>
-            </div>
-
-            <div className="flex gap-4">
-              <button
-                type="submit"
-                disabled={loading}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-              >
-                {loading ? 'Saving...' : 'Save Product'}
-              </button>
               <button
                 type="button"
                 onClick={handleCancel}
-                className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 transition"
+                className="h-9 w-9 rounded-full border border-gray-300 text-gray-500 hover:text-gray-700 hover:border-gray-400 transition"
+                aria-label="Close popup"
               >
-                Cancel
+                &times;
               </button>
             </div>
-          </form>
+
+            <form onSubmit={handleSubmit} className="space-y-6 px-6 py-6 bg-white">
+              <div className="rounded-xl border border-gray-200 bg-white p-5">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-4">Basic Info</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm text-gray-700 font-semibold mb-2">Product Name *</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter product name"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 font-semibold mb-2">Category *</label>
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="">Select category</option>
+                    {categories.map((cat) => (
+                      <option key={cat._id} value={cat._id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 font-semibold mb-2">Unit *</label>
+                  <select
+                    name="unit"
+                    value={formData.unit}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="pcs">Pieces</option>
+                    <option value="kg">Kilogram</option>
+                    <option value="g">Gram</option>
+                    <option value="ltr">Liter</option>
+                    <option value="ml">Milliliter</option>
+                    <option value="box">Box</option>
+                    <option value="pack">Pack</option>
+                    <option value="dozen">Dozen</option>
+                    <option value="meter">Meter</option>
+                    <option value="feet">Feet</option>
+                  </select>
+                </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-5">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-4">Pricing & Stock</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm text-gray-700 font-semibold mb-2">Purchase Price *</label>
+                  <input
+                    type="number"
+                    name="purchasePrice"
+                    value={formData.purchasePrice}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0.00"
+                    step="0.01"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 font-semibold mb-2">Sale Price *</label>
+                  <input
+                    type="number"
+                    name="salePrice"
+                    value={formData.salePrice}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0.00"
+                    step="0.01"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 font-semibold mb-2">Min Stock Level</label>
+                  <input
+                    type="number"
+                    name="minStockLevel"
+                    value={formData.minStockLevel}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="10"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-700 font-semibold mb-2">Tax Rate (%)</label>
+                  <input
+                    type="number"
+                    name="taxRate"
+                    value={formData.taxRate}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0"
+                    step="0.01"
+                  />
+                </div>
+              </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-5">
+                <label className="block text-sm text-gray-700 font-semibold mb-2">Description</label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter description"
+                  rows="3"
+                />
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                <label className="inline-flex items-center gap-2 text-gray-700 font-medium">
+                  <input
+                    type="checkbox"
+                    name="isActive"
+                    id="isActive"
+                    checked={formData.isActive}
+                    onChange={handleInputChange}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-600"
+                  />
+                  Active product
+                </label>
+              </div>
+
+              <div className="flex flex-wrap gap-3 pt-1">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Saving...' : editingId ? 'Update Product' : 'Save Product'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="bg-gray-200 text-gray-700 border border-gray-300 px-6 py-2.5 rounded-lg hover:bg-gray-300 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
